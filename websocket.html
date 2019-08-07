@@ -1,0 +1,144 @@
+<html>
+
+<head>
+
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+
+<title>Upload Files</title>
+
+</head>
+
+<body>
+
+    <h2>File Upload</h2>
+
+    Select file
+
+    <input type="file" id="filename" />
+
+    <br>
+
+    <input type="button" value="Connect" onclick="connectChatServer()" />
+
+    <br>
+
+    <input type="button" value="Upload" onclick="sendFile()" />
+
+    <script>
+
+        function connectChatServer() {
+
+            ws = new WebSocket("ws://0.0.0.0:8080/websocket");
+
+            ws.binaryType = "arraybuffer";
+
+            ws.onopen = function() {
+
+                alert("Connected.")
+
+            };
+
+            ws.onmessage = function(evt) {
+                //var enc = new TextDecoder("utf-8");
+                //alert(enc.decode(evt.data));
+                //alert(evt.data);
+                var received = evt.data;
+                received = JSON.parse(received)
+                console.log(received);
+                if(received.operation == "UploadResponse"){
+                  //alert("YAAAA");
+                  uploadflag = true;
+                }
+            };
+
+            ws.onclose = function() {
+
+                alert("Connection is closed...");
+
+            };
+
+            ws.onerror = function(e) {
+
+                console.log(e.msg);
+
+            }
+
+        }
+
+        function sendFile() {
+
+            var file = document.getElementById('filename').files[0];
+            var reader;
+            var i;
+            var chunkSize = 1024*64;
+            var chunks = Math.ceil((file.size)/chunkSize,chunkSize);
+            var chunk = 0;
+            ws.send(JSON.stringify({Operation : "UploadRequest", Filename : file.name, Chunks : chunks}));
+            while (chunk < chunks){
+              var reader = new FileReader();
+              var rawData = new ArrayBuffer();            
+              var offset = chunk*chunkSize;
+              var index = 0;
+              reader.loadend = function() {}
+              reader.onload = function(e) {
+                console.log(e);
+                rawData = e.target.result;
+                var rawDatawithoutHeader = rawData.replace(/^data:.+;base64,/, '');
+                console.log(rawDatawithoutHeader.length)
+                ws.send(JSON.stringify({Operation : "Uploading", Filename : file.name, Chunks : chunks, Partial : index,
+                  Content : rawDatawithoutHeader}));
+                index++;
+              }
+              reader.readAsDataURL(file.slice(offset,offset+chunkSize))
+              chunk++;
+            }
+            
+            
+            
+            /*var reader = new FileReader();
+            var rawData = new ArrayBuffer();            
+            reader.loadend = function() {}
+
+            reader.onload = function(e) {
+                uploadflag = false;
+                //readAsDataUrl return base64
+                console.log(e);
+                rawData = e.target.result;
+                var rawDatawithoutHeader = rawData.replace(/^data:.+;base64,/, '');
+                var chunkSize = 1024*512;
+                var fileSize = file.size;
+                var chunks = Math.ceil(rawDatawithoutHeader.length/chunkSize,chunkSize);
+                var chunk = 0;
+                ws.send(JSON.stringify({Operation : "UploadRequest", Filename : file.name, Chunks : chunks}));
+                //while(!uploadflag){}
+                //ws.send(chunks);
+                while (chunk < chunks) {
+                  var offset = chunk*chunkSize;
+                  //var bytes = new Uint8Array((rawData.slice(offset,offset+chunkSize)));
+                  //console.log(rawDatawithoutHeader.slice(offset,offset+chunkSize));
+                  //console.log(bytes.byteLength);
+                  //console.log(bytes)           
+                  //console.log(rawDatawithoutHeader.slice(offset,offset+chunkSize).length)       
+                  //var len = bytes.byteLength;
+                  //for (var i = 0; i < len; i++) {
+                  //  binary += String.fromCharCode( bytes[i] );
+                  //}
+                  //console.log(JSON.stringify({Operation : "Uploading", Filename : file.name, Chunks : chunks, Partial : chunk, Content : rawDatawithoutHeader.slice(offset,offset+chunkSize)}));
+                  ws.send(JSON.stringify({Operation : "Uploading", Filename : file.name, Chunks : chunks, Partial : chunk,
+                  Content : rawDatawithoutHeader.slice(offset,offset+chunkSize)}));
+                  chunk++;
+                }
+                alert("the File has been transferred.")
+
+            }
+            //alert(file.name)
+            //reader.readAsDataURL(file);
+*/
+        }
+
+    </script>
+
+</body>
+
+</html>
+
